@@ -118,9 +118,6 @@ abstract contract GovernorBravoProposal is Proposal {
         governor.queue(proposalId);
         require(governor.state(proposalId) == IGovernorBravo.ProposalState.Queued);
 
-        // Warp to allow proposal execution on timelock
-        ITimelockBravo timelock = ITimelockBravo(governor.timelock());
-
         vm.warp(block.timestamp + timelock.delay());
 
         // Execute the proposal
