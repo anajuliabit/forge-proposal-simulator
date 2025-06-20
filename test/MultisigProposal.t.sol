@@ -4,19 +4,13 @@ pragma solidity ^0.8.0;
 import {Test} from "@forge-std/Test.sol";
 
 import {Addresses} from "@addresses/Addresses.sol";
-import {MultisigProposal} from "@proposals/MultisigProposal.sol";
+
 import {MockMultisigProposal} from "@mocks/MockMultisigProposal.sol";
+import {MultisigProposal} from "@proposals/MultisigProposal.sol";
 
 contract MultisigProposalIntegrationTest is Test {
     Addresses public addresses;
     MultisigProposal public proposal;
-
-    struct Call3Value {
-        address target;
-        bool allowFailure;
-        uint256 value;
-        bytes callData;
-    }
 
     function setUp() public {
         uint256[] memory chainIds = new uint256[](1);
@@ -36,15 +30,9 @@ contract MultisigProposalIntegrationTest is Test {
     }
 
     function test_setUp() public view {
+        assertEq(proposal.name(), string("OPTMISM_MULTISIG_MOCK"), "Wrong proposal name");
         assertEq(
-            proposal.name(),
-            string("OPTMISM_MULTISIG_MOCK"),
-            "Wrong proposal name"
-        );
-        assertEq(
-            proposal.description(),
-            string("Mock proposal that upgrade the L1 NFT Bridge"),
-            "Wrong proposal description"
+            proposal.description(), string("Mock proposal that upgrade the L1 NFT Bridge"), "Wrong proposal description"
         );
     }
 
@@ -53,9 +41,7 @@ contract MultisigProposalIntegrationTest is Test {
         proposal.deploy();
         vm.stopPrank();
 
-        assertTrue(
-            addresses.isAddressSet("OPTIMISM_L1_NFT_BRIDGE_IMPLEMENTATION")
-        );
+        assertTrue(addresses.isAddressSet("OPTIMISM_L1_NFT_BRIDGE_IMPLEMENTATION"));
     }
 
     function test_build() public {
@@ -66,19 +52,11 @@ contract MultisigProposalIntegrationTest is Test {
 
         proposal.build();
 
-        (
-            address[] memory targets,
-            uint256[] memory values,
-            bytes[] memory calldatas
-        ) = proposal.getProposalActions();
+        (address[] memory targets, uint256[] memory values, bytes[] memory calldatas) = proposal.getProposalActions();
 
         // check that the proposal targets are correct
         assertEq(targets.length, 1, "Wrong targets length");
-        assertEq(
-            targets[0],
-            addresses.getAddress("OPTIMISM_PROXY_ADMIN"),
-            "Wrong target at index 0"
-        );
+        assertEq(targets[0], addresses.getAddress("OPTIMISM_PROXY_ADMIN"), "Wrong target at index 0");
 
         // check that the proposal values are correct
         assertEq(values.length, 1, "Wrong values length");
@@ -108,30 +86,25 @@ contract MultisigProposalIntegrationTest is Test {
     function test_getCalldata() public {
         test_build();
 
-        (
-            address[] memory targets,
-            uint256[] memory values,
-            bytes[] memory calldatas
-        ) = proposal.getProposalActions();
+        (address[] memory targets, uint256[] memory values, bytes[] memory calldatas) = proposal.getProposalActions();
 
-        Call3Value[] memory calls = new Call3Value[](targets.length);
+        bytes memory encodedTxs;
 
-        for (uint256 i; i < calls.length; i++) {
-            calls[i] = Call3Value({
-                target: targets[i],
-                allowFailure: false,
-                value: values[i],
-                callData: calldatas[i]
-            });
+        for (uint256 i = 0; i < targets.length; i++) {
+            uint8 operation = 0;
+            address to = targets[i];
+            uint256 value = values[i];
+            bytes memory callData = calldatas[i];
+
+            encodedTxs =
+                bytes.concat(encodedTxs, abi.encodePacked(operation, to, value, uint256(callData.length), callData));
         }
 
-        bytes memory expectedData = abi.encodeWithSignature(
-            "aggregate3Value((address,bool,uint256,bytes)[])", calls
-        );
+        bytes memory expectedData = abi.encodeWithSignature("multiSend(bytes)", encodedTxs);
 
         bytes memory data = proposal.getCalldata();
 
-        assertEq(data, expectedData, "Wrong aggregate calldata");
+        assertEq(data, expectedData, "Wrong multiSend calldata");
     }
 
     function test_getProposalId() public {
