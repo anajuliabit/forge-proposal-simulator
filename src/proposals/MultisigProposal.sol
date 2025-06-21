@@ -2,16 +2,15 @@ pragma solidity ^0.8.0;
 
 import "@forge-std/console.sol";
 
-import {Address} from "@utils/Address.sol";
 import {Proposal} from "./Proposal.sol";
+import {Address} from "@utils/Address.sol";
 import {Constants} from "@utils/Constants.sol";
 
 abstract contract MultisigProposal is Proposal {
     using Address for address;
 
-    bytes32 public constant MULTISIG_BYTECODE_HASH = bytes32(
-        0xb89c1b3bdf2cf8827818646bce9a8f6e372885f8c55e5c07acbd307cb133b000
-    );
+    bytes32 public constant MULTISIG_BYTECODE_HASH =
+        bytes32(0xb89c1b3bdf2cf8827818646bce9a8f6e372885f8c55e5c07acbd307cb133b000);
 
     struct Call3Value {
         address target;
@@ -21,31 +20,24 @@ abstract contract MultisigProposal is Proposal {
     }
 
     /// @notice return calldata, log if debug is set to true
-    function getCalldata() public view override returns (bytes memory data) {
-        /// get proposal actions
-        (
-            address[] memory targets,
-            uint256[] memory values,
-            bytes[] memory arguments
-        ) = getProposalActions();
+    function getCalldata() public view override returns (bytes memory) {
+        (address[] memory targets, uint256[] memory values, bytes[] memory arguments) = getProposalActions();
 
-        /// create calls array with targets and arguments
-        Call3Value[] memory calls = new Call3Value[](targets.length);
+        require(targets.length == values.length && values.length == arguments.length, "Array lengths mismatch");
 
-        for (uint256 i; i < calls.length; i++) {
-            require(targets[i] != address(0), "Invalid target for multisig");
-            calls[i] = Call3Value({
-                target: targets[i],
-                allowFailure: false,
-                value: values[i],
-                callData: arguments[i]
-            });
+        bytes memory encodedTxs;
+
+        for (uint256 i = 0; i < targets.length; i++) {
+            uint8 operation = 0;
+            address to = targets[i];
+            uint256 value = values[i];
+            bytes memory data = arguments[i];
+
+            encodedTxs = bytes.concat(encodedTxs, abi.encodePacked(operation, to, value, uint256(data.length), data));
         }
 
-        /// generate calldata
-        data = abi.encodeWithSignature(
-            "aggregate3Value((address,bool,uint256,bytes)[])", calls
-        );
+        // The final calldata to send to the MultiSend contract
+        return abi.encodeWithSignature("multiSend(bytes)", encodedTxs);
     }
 
     /// @notice Check if there are any on-chain proposal that matches the
@@ -59,7 +51,7 @@ abstract contract MultisigProposal is Proposal {
 
         /// this is a hack because multisig execTransaction requires owners signatures
         /// so we cannot simulate it exactly as it will be executed on mainnet
-        vm.etch(multisig, Constants.MULTICALL_BYTECODE);
+        vm.etch(multisig, Constants.MULTISEND_BYTECODE);
 
         bytes memory data = getCalldata();
 
