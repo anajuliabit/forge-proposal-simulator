@@ -40,6 +40,9 @@ abstract contract Proposal is Test, Script, IProposal {
     /// @notice map if an address is affected in proposal execution
     mapping(address addr => bool isAffected) private _isProposalAffectedAddress;
 
+    /// @notice addresses to ignore when recording calls
+    address[] private ignoreCallsTo;
+
     /// @notice starting snapshot of the contract state before the calls are made
     uint256 private _startSnapshot;
 
@@ -208,6 +211,11 @@ abstract contract Proposal is Test, Script, IProposal {
     ///          states that are expected to have changed during the simulate step.
     function validate() public virtual {}
 
+    /// @notice add address to ignore calls to
+    function addToIgnoreCallsTo(address addr) public {
+        ignoreCallsTo.push(addr);
+    }
+
     /// @notice print proposal description, actions and calldata
     function print() public virtual {
         console.log("\n---------------- Proposal Description ----------------");
@@ -362,13 +370,15 @@ abstract contract Proposal is Test, Script, IProposal {
             /// only care about calls from the original caller,
             /// static calls are ignored,
             /// calls to and from Addresses and the vm contract are ignored
+            /// calls to addresses in ignoreCallsTo are ignored
             if (
+                /// ignore calls to vm in the build function
                 accountAccesses[i].account != address(addresses)
                     && accountAccesses[i].account != address(vm)
-                /// ignore calls to vm in the build function
-                && accountAccesses[i].accessor != address(addresses)
+                    && accountAccesses[i].accessor != address(addresses)
                     && accountAccesses[i].kind == VmSafe.AccountAccessKind.Call
                     && accountAccesses[i].accessor == caller
+                    && !_isAddressInIgnoreList(accountAccesses[i].account)
             ) {
                 /// caller is correct, not a subcall
                 _validateAction(
@@ -514,6 +524,16 @@ abstract contract Proposal is Test, Script, IProposal {
                 _proposalAffectedAddresses.push(account);
             }
         }
+    }
+
+    /// @notice check if address is in ignore list
+    function _isAddressInIgnoreList(address addr) private view returns (bool) {
+        for (uint256 i = 0; i < ignoreCallsTo.length; i++) {
+            if (ignoreCallsTo[i] == addr) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /// @notice helper method to get labels for addresses
