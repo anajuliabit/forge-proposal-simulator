@@ -9,8 +9,9 @@ import {Constants} from "@utils/Constants.sol";
 abstract contract MultisigProposal is Proposal {
     using Address for address;
 
-    bytes32 public constant MULTISIG_BYTECODE_HASH =
-        bytes32(0xb89c1b3bdf2cf8827818646bce9a8f6e372885f8c55e5c07acbd307cb133b000);
+    bytes32 public constant MULTISIG_BYTECODE_HASH = bytes32(
+        0xb89c1b3bdf2cf8827818646bce9a8f6e372885f8c55e5c07acbd307cb133b000
+    );
 
     struct Call3Value {
         address target;
@@ -19,21 +20,51 @@ abstract contract MultisigProposal is Proposal {
         bytes callData;
     }
 
+    /// @notice get operations for each action, override this to provide custom operations
+    function getOperations()
+        public
+        view
+        virtual
+        returns (uint8[] memory operations)
+    {
+        uint256 actionsLength = actions.length;
+        operations = new uint8[](actionsLength);
+
+        // Default all operations to 0 (Call operation)
+        for (uint256 i = 0; i < actionsLength; i++) {
+            operations[i] = 0;
+        }
+    }
+
     /// @notice return calldata, log if debug is set to true
     function getCalldata() public view override returns (bytes memory) {
-        (address[] memory targets, uint256[] memory values, bytes[] memory arguments) = getProposalActions();
+        (
+            address[] memory targets,
+            uint256[] memory values,
+            bytes[] memory arguments
+        ) = getProposalActions();
+        uint8[] memory operations = getOperations();
 
-        require(targets.length == values.length && values.length == arguments.length, "Array lengths mismatch");
+        require(
+            targets.length == values.length && values.length == arguments.length
+                && arguments.length == operations.length,
+            "Array lengths mismatch"
+        );
 
         bytes memory encodedTxs;
 
         for (uint256 i = 0; i < targets.length; i++) {
-            uint8 operation = 0;
+            uint8 operation = operations[i];
             address to = targets[i];
             uint256 value = values[i];
             bytes memory data = arguments[i];
 
-            encodedTxs = bytes.concat(encodedTxs, abi.encodePacked(operation, to, value, uint256(data.length), data));
+            encodedTxs = bytes.concat(
+                encodedTxs,
+                abi.encodePacked(
+                    operation, to, value, uint256(data.length), data
+                )
+            );
         }
 
         // The final calldata to send to the MultiSend contract
