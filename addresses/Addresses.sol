@@ -179,7 +179,6 @@ contract Addresses is IAddresses, Test {
                 savedAddresses[i].addr = _addr;
             }
         }
-        console.log("changeAddress", name);
         data.addr = _addr;
         data.isContract = isContract;
         vm.label(_addr, name);
@@ -323,11 +322,7 @@ contract Addresses is IAddresses, Test {
             string(abi.encodePacked("Address with name: ", name, " already set on chain: ", vm.toString(chainId)))
         );
 
-        console.log("addAddress", name);
-
         bool exist = addressToChainId[addr][chainId];
-
-        console.log("exist", exist);
 
         require(
             !exist,
