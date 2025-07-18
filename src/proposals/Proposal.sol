@@ -4,9 +4,9 @@ import {Test} from "@forge-std/Test.sol";
 import {VmSafe} from "@forge-std/Vm.sol";
 import {console} from "@forge-std/console.sol";
 
+import {Addresses} from "@addresses/Addresses.sol";
 import {Script} from "@forge-std/Script.sol";
 import {IProposal} from "@proposals/IProposal.sol";
-import {Addresses} from "@addresses/Addresses.sol";
 
 abstract contract Proposal is Test, Script, IProposal {
     struct Action {
@@ -363,10 +363,10 @@ abstract contract Proposal is Test, Script, IProposal {
             /// static calls are ignored,
             /// calls to and from Addresses and the vm contract are ignored
             if (
+                /// ignore calls to vm in the build function
                 accountAccesses[i].account != address(addresses)
                     && accountAccesses[i].account != address(vm)
-                /// ignore calls to vm in the build function
-                && accountAccesses[i].accessor != address(addresses)
+                    && accountAccesses[i].accessor != address(addresses)
                     && accountAccesses[i].kind == VmSafe.AccountAccessKind.Call
                     && accountAccesses[i].accessor == caller
             ) {
