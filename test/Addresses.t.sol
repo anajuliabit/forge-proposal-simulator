@@ -379,6 +379,15 @@ contract TestAddresses is Test {
         addresses.addAddress("TEST", vm.addr(1), true);
     }
 
+    function test_checkAddressAcceptsEIP7702DelegatedEOA() public {
+        address test = vm.addr(1);
+
+        vm.etch(test, abi.encodePacked(hex"ef0100", vm.addr(2)));
+
+        addresses.addAddress("TEST", test, false);
+        assertEq(addresses.getAddress("TEST"), test);
+    }
+
     function test_checkAddressRevertIfSetIsContractFalseButIsContract()
         public
     {

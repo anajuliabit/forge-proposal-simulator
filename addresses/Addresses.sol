@@ -369,11 +369,18 @@ contract Addresses is IAddresses, Test {
                 );
             } else {
                 require(
-                    _addr.code.length == 0,
+                    _addr.code.length == 0 || _isDelegatedEOA(_addr),
                     string(abi.encodePacked("Address: ", name, " is a contract on chain: ", vm.toString(chainId)))
                 );
             }
         }
+    }
+
+    /// @notice check if an address is an EOA with an EIP-7702 delegation, whose code is 0xef0100 || delegate
+    /// @param _addr the address to check
+    function _isDelegatedEOA(address _addr) private view returns (bool) {
+        bytes memory code = _addr.code;
+        return code.length == 23 && code[0] == 0xef && code[1] == 0x01 && code[2] == 0x00;
     }
 
     /// @notice constructs json string data for address json from saved addresses array
